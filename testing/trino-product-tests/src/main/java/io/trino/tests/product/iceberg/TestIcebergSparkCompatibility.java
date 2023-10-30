@@ -238,7 +238,7 @@ public class TestIcebergSparkCompatibility
                 ", DECIMAL '123456.78' _short_decimal " +
                 ", DECIMAL '1234567890123456789.0123456789012345678' _long_decimal " +
                 ", true _boolean " +
-                //", TIMESTAMP '2020-06-28 14:16:00.456' _timestamp " +
+                ", TIMESTAMP '2020-06-28 14:16:00.123456' _timestamp " +
                 ", TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw' _timestamptz " +
                 ", DATE '1950-06-28' _date " +
                 ", X'000102f0feff' _binary " +
@@ -257,7 +257,7 @@ public class TestIcebergSparkCompatibility
                                 ", _short_decimal decimal(8,2)" +
                                 ", _long_decimal decimal(38,19)" +
                                 ", _boolean BOOLEAN" +
-                                //", _timestamp TIMESTAMP" -- per https://iceberg.apache.org/spark-writes/ Iceberg's timestamp is currently not supported with Spark
+                                ", _timestamp TIMESTAMP" +
                                 ", _timestamptz timestamp(6) with time zone" +
                                 ", _date DATE" +
                                 ", _binary VARBINARY" +
@@ -291,7 +291,7 @@ public class TestIcebergSparkCompatibility
                 new BigDecimal("123456.78"),
                 new BigDecimal("1234567890123456789.0123456789012345678"),
                 true,
-                //"2020-06-28 14:16:00.456",
+                "2020-06-28 14:16:00.123456",
                 "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
                 "1950-06-28",
                 new byte[] {00, 01, 02, -16, -2, -1}
@@ -307,7 +307,7 @@ public class TestIcebergSparkCompatibility
                         ", _short_decimal" +
                         ", _long_decimal" +
                         ", _boolean" +
-                        // _timestamp OR CAST(_timestamp AS varchar)
+                        ", CAST(_timestamp AS varchar)" +
                         ", CAST(_timestamptz AS varchar)" +
                         ", CAST(_date AS varchar)" +
                         ", _binary" +
@@ -325,7 +325,7 @@ public class TestIcebergSparkCompatibility
                         ", _short_decimal" +
                         ", _long_decimal" +
                         ", _boolean" +
-                        // _timestamp OR CAST(_timestamp AS string)
+                        ", CAST(_timestamp AS string)" +
                         ", CAST(_timestamptz AS string) || ' UTC'" + // Iceberg timestamptz is mapped to Spark timestamp and gets represented without time zone
                         ", CAST(_date AS string)" +
                         ", _binary" +
@@ -611,7 +611,8 @@ public class TestIcebergSparkCompatibility
                 specVersion));
 
         assertThat(onTrino().executeQuery("SELECT key, value FROM " + trinoPropertiesTableName))
-                .containsOnly(
+                // Use contains method because the result may contain format-specific properties
+                .contains(
                         row("custom.table-property", "my_custom_value"),
                         row("write.format.default", storageFormat.name()),
                         row("owner", "hive"));
@@ -1595,7 +1596,8 @@ public class TestIcebergSparkCompatibility
                 "INSERT INTO TABLE %s SELECT" +
                 "  'Doc213'" +
                 ", named_struct('id', 1, 'name', 'P. Sherman', 'address', named_struct('a', 42, 'b', 'Wallaby Way'))";
-        onSpark().executeQuery(format(insert, defaultCatalogTableName));
+        // Using onHive because onSpark throws NoClassDefFoundError: org/apache/spark/sql/internal/SQLConf$LegacyBehaviorPolicy$
+        onHive().executeQuery(format(insert, defaultCatalogTableName));
         try {
             onSpark().executeQuery(format("CALL system.migrate('%s')", defaultCatalogTableName));
         }
